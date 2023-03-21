@@ -24,12 +24,28 @@ ADDR_KBRD:
 RED:   .word 0xff0000
 GREEN: .word 0x00ff00 
 BLUE:  .word 0x0000ff
-GREY:  .word 0x808080 
+GREY:  .word 0xebecf0
 BLACK: .word 0x000000
 
 ##############################################################################
 # Mutable Data
 ##############################################################################
+# Colors of blocks (array of size 48) 
+COLORS:
+    .word 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000
+    .word 0x00ff00, 0x00ff00, 0x00ff00, 0x00ff00, 0x00ff00, 0x00ff00, 0x00ff00, 0x00ff00
+    .word 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff, 0x0000ff
+
+
+
+# Address of Ball 
+BALL_ADDRESS_OFFSET: .word 3388
+
+# Address of Paddle 
+PADDLE_ADDRESS_OFFSET: .word 3632
+
+# Address of Block 
+BLOCK_ADDRESS_OFFSET: .word 384
 
 ##############################################################################
 # Code
@@ -39,25 +55,131 @@ BLACK: .word 0x000000
 
 	# Run the Brick Breaker game.
 main:
-	# $t0 = RED 
-	# $t1 = length 
-	# $t2 = ADDR_DSPL
-	la $t0, RED         # load address of RED into $t0 
-	lw $t0, 0($t0)      # load RED into $t0
-	addi $t1, $zero, 2 # load width = height = 10
-	la $t2, ADDR_DSPL   # load address of ADDR_DSPL into $t2 
-	lw $t2, 0($t2)      # load ADDR_DSPL into $t2 
-	# load parameters and invoke DRAW_LINE
-	addi $sp, $sp, -4   # increase stack size
-	sw $t0, 0($sp)      # push `color` onto stack
-	addi $sp, $sp, -4   # increase stack size
-	sw $t1, 0($sp)      # push `width` onto stack
-	addi $sp, $sp, -4   # increase stack size
-	sw $t1, 0($sp)      # push `height` onto stack
-	addi $sp, $sp, -4   # increase stack size
-	sw $t2, 0($sp)      # push `ADDR_DSPL` onto stack
-	jal DRAW_RECTANGLE  # invoke DRAW_LINE
+	jal DRAW_SCENE
 	j EXIT              # Exit after drawing line
+	
+DRAW_SCENE: 
+	# usage: draw_scene()
+	# colors, paddle_address_offset, ball_address_offset, block_address_offset are fetched from memory
+	
+	draw_blocks:
+		# $t0 = block address 
+		# $t1 = colors address 
+		# $t2 = index of draw block loop 
+		# $t3 = end index of loop (24 blocks)
+		# $t4 = color of current block
+		# $t9 = width of a block = 4 
+		# $t8 = height of a block = 1
+		
+		addi $t9, $zero, 4                 # $t9 = width of block = 4
+		addi $t8, $zero, 1                 # $t8 = height of block = 1
+	
+		# get data from memory 
+		la $t0, BLOCK_ADDRESS_OFFSET       # $t0 = address of BLOCK_ADDRESS_OFFSET
+		lw $t0, 0($t0)                     # $t0 = BLOCK_ADDRESS_OFFSET
+		la $t1, ADDR_DSPL                  # $t1 = address of ADDR_DSPL
+		lw $t1, 0($t1)                     # $t1 = ADDR_DSPL
+		add $t0, $t0, $t1                  # $t0 = address of first block (address = ADDR_DSPL + offset)
+		la $t1, COLORS                     # $t1 = address of COLORS
+	
+		# set up loop variables 	
+		addi $t2, $zero, 0                 # $t2 = loop index = 0 
+		addi $t3, $zero, 24                # $t3 = loop end index = 24 
+	
+		draw_block_loop: 
+			beq $t2, $t3, draw_ball        # if (loop index == 24), stop drawing blocks. Draw ball.
+			lw $t4, 0($t1)                 # $t4 = COLORS[i] 
+			
+			# Push registers onto stack (we don't push $t4 = color since we can access that through $t1)
+			addi $sp, $sp, -4   		   # increase stack size
+			sw $ra, 0($sp)     			   # push `$ra` onto stack
+			addi $sp, $sp, -4   		   # increase stack size
+			sw $t0, 0($sp)     			   # push `block address` onto stack
+			addi $sp, $sp, -4  			   # increase stack size
+			sw $t1, 0($sp)                 # push `color address` onto stack
+			addi $sp, $sp, -4  			   # increase stack size
+			sw $t2, 0($sp)     			   # push `index` onto stack
+			addi $sp, $sp, -4  			   # increase stack size
+			sw $t3, 0($sp)     			   # push `end index` onto stack
+			
+			# Set up parameters for draw rectangle(address, height, width, color) 
+			addi $sp, $sp, -4  			   # increase stack size
+			sw $t4, 0($sp)     			   # push `color` onto stack
+			addi $sp, $sp, -4  			   # increase stack size
+			sw $t9, 0($sp)     			   # push `width` onto stack
+			addi $sp, $sp, -4  			   # increase stack size
+			sw $t8, 0($sp)     			   # push `height` onto stack
+			addi $sp, $sp, -4   		   # increase stack size
+			sw $t0, 0($sp)     			   # push `block address` onto stack
+			
+			jal DRAW_RECTANGLE    		   # invoke rectangle(address, height, width, color) 
+			
+			# Pop registers from the stack 
+			lw $t3, 0($sp)     			   # pop `end index` from stack
+			addi $sp, $sp, 4   			   # decrement stack size 
+			lw $t2, 0($sp)     			   # pop `index` from stack
+			addi $sp, $sp, 4   			   # decrement stack size 
+			lw $t1, 0($sp)     			   # pop `color address` from stack
+			addi $sp, $sp, 4   			   # decrement stack size 
+			lw $t0, 0($sp)     			   # pop `block address` from stack
+			addi $sp, $sp, 4   			   # decrement stack size 
+			lw $ra, 0($sp)     			   # pop `$ra` from stack
+			addi $sp, $sp, 4   			   # decrement stack size 
+			
+			# Update variables (each block is 4 pixels wide)
+			addi $t0, $t0, 16              # Increment to address of next block (4 * 4 = 16) 
+			addi $t1, $t1, 4               # Increment to address of next color 
+			addi $t2, $t2, 1               # Increment loop index ($t2)
+			
+			j draw_block_loop              # jump to next iteration to loop
+	draw_ball: 
+		# $t0 = ball address offset AND ball address
+		# $t1 = base address of bitmap AND color grey 
+		la $t0, BALL_ADDRESS_OFFSET        # $t0 = address of BALL_ADDRESS_OFFSET
+		lw $t0, 0($t0)                     # $t0 = BALL_ADDRESS_OFFSET 
+		la $t1, ADDR_DSPL                  # $t1 = address of ADDR_DSPL
+		lw $t1, 0($t1)                     # $t1 = ADDR_DSPL
+		add $t0, $t0, $t1                  # $t0 = address of ball (offset + base address) 
+		la $t1, GREY                       # $t1 = address of GREY 
+		lw $t1, 0($t1)                     # $t1 = GREY 
+		sw $t1, 0($t0)                     # draw ball (easier to just draw pixel)
+	 
+	 draw_paddle: 
+		# $t0 = paddle address offset AND paddle address 
+		# $t1 = base address of bitmap AND color grey 
+		# $t9 = width of paddle = 8 
+		# $t8 = height of paddle = 1 
+		la $t0, PADDLE_ADDRESS_OFFSET      # $t0 = address of PADDLE_ADDRESS_OFFSET
+		lw $t0, 0($t0)                     # $t0 = PADDLE_ADDRESS_OFFSET 
+		la $t1, ADDR_DSPL                  # $t1 = address of ADDR_DSPL
+		lw $t1, 0($t1)                     # $t1 = ADDR_DSPL
+		add $t0, $t0, $t1                  # $t0 = address of paddle (offset + base address) 
+		la $t1, GREY                       # $t1 = address of GREY 
+		lw $t1, 0($t1)                     # $t1 = GREY 
+		addi $t9, $zero, 8                 # $t9 = width of paddle = 8 
+		addi $t8, $zero, 1                 # $t8 = height of paddle = 1 
+		
+		# just save $ra (no more need for other registers)
+		addi $sp, $sp, -4   		   # increase stack size
+		sw $ra, 0($sp)     			   # push `$ra` onto stack
+		
+		# Set up parameters for rectangle(address, height, width, color) 
+		addi $sp, $sp, -4  # increase stack size
+		sw $t1, 0($sp)     # push `color` onto stack
+		addi $sp, $sp, -4  # increase stack size
+		sw $t9, 0($sp)     # push `width` onto stack
+		addi $sp, $sp, -4  # increase stack size
+		sw $t8, 0($sp)     # push `height` onto stack
+		addi $sp, $sp, -4  # increase stack size
+		sw $t0, 0($sp)     # push `address` onto stack
+		
+	 	jal DRAW_RECTANGLE # invole rectangle(address, height, width, color) 
+		
+		# pop $ra 
+		lw $ra, 0($sp)     			   # pop `$ra` from stack
+		addi $sp, $sp, 4   			   # decrement stack size
+		
+	jr $ra 
 	
 DRAW_LINE: 
 	# usage: draw_line(address, length, color) 
@@ -101,7 +223,7 @@ DRAW_RECTANGLE:
 		addi $sp, $sp, 4    # decrement stack size
 		lw $t2, 0($sp)      # load `width` 
 		addi $sp, $sp, 4    # decrement stack size
-		lw $t3, 0($sp)      # load `address`
+		lw $t3, 0($sp)      # load `color`
 		addi $sp, $sp, 4    # decrement stack size
 		
 		addi $t4, $zero, 0  # load loop index = 0
@@ -156,7 +278,6 @@ DRAW_RECTANGLE:
 		
 	draw_line_loop_end: 
 		jr $ra 				# return to caller 
-		
 		
 
 game_loop:
