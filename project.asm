@@ -58,8 +58,7 @@ BLOCK_ADDRESS_OFFSET: .word 384
 	# Run the Brick Breaker game.
 main:
 	jal DRAW_SCENE
-	jal MOVE_PADDLE_LEFT 
-	j EXIT              # Exit after drawing line
+	j EXIT              
 	
 DRAW_SCENE: 
 	# usage: draw_scene()
@@ -78,10 +77,8 @@ DRAW_SCENE:
 		addi $t8, $zero, 1                 # $t8 = height of block = 1
 	
 		# get data from memory 
-		la $t0, BLOCK_ADDRESS_OFFSET       # $t0 = address of BLOCK_ADDRESS_OFFSET
-		lw $t0, 0($t0)                     # $t0 = BLOCK_ADDRESS_OFFSET
-		la $t1, ADDR_DSPL                  # $t1 = address of ADDR_DSPL
-		lw $t1, 0($t1)                     # $t1 = ADDR_DSPL
+		lw $t0, BLOCK_ADDRESS_OFFSET       # $t0 = BLOCK_ADDRESS_OFFSET
+		lw $t1, ADDR_DSPL                  # $t1 = ADDR_DSPL
 		add $t0, $t0, $t1                  # $t0 = address of first block (address = ADDR_DSPL + offset)
 		la $t1, COLORS                     # $t1 = address of COLORS
 	
@@ -138,13 +135,10 @@ DRAW_SCENE:
 	draw_ball: 
 		# $t0 = ball address offset AND ball address
 		# $t1 = base address of bitmap AND color grey 
-		la $t0, BALL_ADDRESS_OFFSET        # $t0 = address of BALL_ADDRESS_OFFSET
-		lw $t0, 0($t0)                     # $t0 = BALL_ADDRESS_OFFSET 
-		la $t1, ADDR_DSPL                  # $t1 = address of ADDR_DSPL
-		lw $t1, 0($t1)                     # $t1 = ADDR_DSPL
+		lw $t0, BALL_ADDRESS_OFFSET        # $t0 = BALL_ADDRESS_OFFSET
+		lw $t1, ADDR_DSPL                  # $t1 = ADDR_DSPL
 		add $t0, $t0, $t1                  # $t0 = address of ball (offset + base address) 
-		la $t1, GREY                       # $t1 = address of GREY 
-		lw $t1, 0($t1)                     # $t1 = GREY 
+		lw $t1, GREY                       # $t1 = GREY 
 		sw $t1, 0($t0)                     # draw ball (easier to just draw pixel)
 	 
 	 draw_paddle: 
@@ -152,13 +146,10 @@ DRAW_SCENE:
 		# $t1 = base address of bitmap AND color grey 
 		# $t9 = width of paddle = 8 
 		# $t8 = height of paddle = 1 
-		la $t0, PADDLE_ADDRESS_OFFSET      # $t0 = address of PADDLE_ADDRESS_OFFSET
-		lw $t0, 0($t0)                     # $t0 = PADDLE_ADDRESS_OFFSET 
-		la $t1, ADDR_DSPL                  # $t1 = address of ADDR_DSPL
-		lw $t1, 0($t1)                     # $t1 = ADDR_DSPL
+		lw $t0, PADDLE_ADDRESS_OFFSET      # $t0 = PADDLE_ADDRESS_OFFSET
+		lw $t1, ADDR_DSPL                  # $t1 = ADDR_DSPL
 		add $t0, $t0, $t1                  # $t0 = address of paddle (offset + base address) 
-		la $t1, GREY                       # $t1 = address of GREY 
-		lw $t1, 0($t1)                     # $t1 = GREY 
+		lw $t1, GREY                       # $t1 = GREY 
 		addi $t9, $zero, 8                 # $t9 = width of paddle = 8 
 		addi $t8, $zero, 1                 # $t8 = height of paddle = 1 
 		
@@ -283,58 +274,147 @@ DRAW_RECTANGLE:
 		jr $ra 				# return to caller 
 		
 MOVE_PADDLE_LEFT:
-	# usage move_paddle_left
-	# $t0 = address of paddle offset AND address of leftmost pixel 
-	# $t1 = base address of bitmap AND address of rightmost pixel
+	# usage move_paddle_left()
+	# $t0 = address of leftmost pixel 
+	# $t1 = base address of bitmap 
 	# $t2 = PADDLE_LEFT_LIM_OFFSET (in memory) AND PADDLE_LEFT_LIM (not in memory)
 	# $t3 = pixel to left of paddle AND color of pixel to directly to left of paddle
 	# $t4 = color BLACK
 	# $t5 = address of rightmost pixel 
 	# $t6 = color grey 
+	# $t7 = address of PADDLE_ADDRESS_OFFSET
 	
 	# fetch data from memory 
-	la $t0, PADDLE_ADDRESS_OFFSET   # $t0 = address of PADDLE_ADDRESS_OFFSET
-	lw $t0, 0($t0)      			# $t0 = PADDLE_ADDRESS_OFFSET
-	la $t1, ADDR_DSPL               # $t1 = address of ADDR_DSPL
-	lw $t1, 0($t1)                  # $t1 = ADDR_DSPL
+	lw $t0, PADDLE_ADDRESS_OFFSET   # $t0 = PADDLE_ADDRESS_OFFSET
+	lw $t1, ADDR_DSPL               # $t1 = address of ADDR_DSPL
 
 	# find leftmost limit of paddle
-	la $t2, PADDLE_LEFT_LIM_OFFSET  # $t2 = address of PADDLE_LEFT_LIM_OFFSET
-	lw $t2, 0($t2)                  # $t2 = PADDLE_LEFT_LIM_OFFSET
+	lw $t2, PADDLE_LEFT_LIM_OFFSET  # $t2 = PADDLE_LEFT_LIM_OFFSET
 	add $t2, $t2, $t1               # $t2 = ADDR_DSPL + PADDLE_LEFT_LIM_OFFSET = PADDLE_LEFT_LIM
 	
 	# process leftmost pixel of paddle
 	add $t0, $t0, $t1               # $t0 = address of leftmost pixel = ADDR_DSPL + PADDLE_ADDRESS_OFFSET
-	beq $t0, $t2, NO_MOVE           # if leftmost pixel of paddle is on leftmost edge, don't move
+	beq $t0, $t2, NO_MOVE_LEFT      # if leftmost pixel of paddle is on leftmost edge, don't move
 	
 	# process pixel to left of paddle 
 	add $t3, $t0, -4                # $t3 = 1 pixel to left of paddle
 	lw $t3, 0($t3)                  # $t3 = color of the pixel to left of paddle
 	addi $t4, $zero, 0x000000       # $t4 = BLACK 
-	bne $t3, $t4, NO_MOVE           # if pixel to left of paddle is not black, don't move
+	bne $t3, $t4, NO_MOVE_LEFT      # if pixel to left of paddle is not black, don't move
 	
 	# move the paddle to left 
 	addi $t5, $t0, 28               # $t5 = leftmost pixel + 28 = rightmost pixel of paddle 
 	sw $t4, 0($t5)                  # color rightmost pixel black
-	la $t6, GREY                    # $t6 = address of GREY
-	lw $t6, 0($t6)      			# $t6 = GREY
+	lw $t6, GREY                    # $t6 = GREY
 	addi $t0, $t0, -4               # $t0 = leftmost pixel - 4 = pixel to left of paddle
-	sw $t6, 0($t0)                  # color pixel to left of paddle GREY
+	sw $t6, 0($t0)                  # color pixel to left of paddle GREY ($t0 is new PADDLE_ADDRESS_OFFSET)
 	
-	NO_MOVE: # if the paddle shouldn't be moved
-		jr $ra                          # return 
+	# update PADDLE_ADDRESS_OFFSET
+	la $t7, PADDLE_ADDRESS_OFFSET   # $t7 = address of PADDLE_ADDRESS_OFFSET
+	sub $t0, $t0, $t1               # $t0 = $t0 - $t1 = new leftmost pixel - base address
+	sw $t0, 0($t7)                  # Store new paddle offset into PADDLE_ADDRESS_OFFSET
+	
+	NO_MOVE_LEFT: 					# if the paddle shouldn't be moved
+		jr $ra                      # return 
+		
+MOVE_PADDLE_RIGHT:
+	# usage move_paddle_right()
+	# $t0 = PADDLE_ADDRESS_OFFSET AND PADDLE_ADDRESS
+	# $t1 = ADDR_DSPL 
+	# $t2 = PADDLE_RIGHT_LIM_OFFSET (in memory) AND PADDLE_RIGHT_LIM (not in memory)
+	# $t3 = address of rightmost pixel of paddle
+	# $t4 = 1 pixel to right of paddle AND color of pixel to right of paddle
+	# $t5 = BLACK
+	# $t6 = GREY
+	# $t7 = address of PADDLE_ADDRESS_OFFSET
+	
+	# fetch data from memory 
+	lw $t0, PADDLE_ADDRESS_OFFSET   # $t0 = PADDLE_ADDRESS_OFFSET
+	lw $t1, ADDR_DSPL               # $t1 = address of ADDR_DSPL
+	add $t0, $t0, $t1               # $t0 = PADDLE_ADDRESS = ADDR_DSPL + PADDLE_ADDRESS_OFFSET
+	
+	# find rightmost limit of paddle
+	lw $t2, PADDLE_RIGHT_LIM_OFFSET # $t2 = PADDLE_RIGHT_LIM_OFFSET
+	add $t2, $t2, $t1               # $t2 = ADDR_DSPL + PADDLE_RIGHT_LIM_OFFSET = PADDLE_RIGHT_LIM
+	
+	# process rightmost pixel of paddle
+	addi $t3, $t0, 28               # $t3 = leftmost pixel + 28 = rightmost pixel of paddle
+	beq $t3, $t2, NO_MOVE_RIGHT     # if rightmost pixel of paddle is on rightmost edge, don't move
+	
+	# process pixel to right of paddle 
+	addi $t4, $t3, 4                # $t4 = 1 pixel to right of paddle
+	lw $t4, 0($t4)                  # $t4 = color of the pixel to right of paddle
+	addi $t5, $zero, 0x000000       # $t5 = BLACK
+	bne $t4, $t5, NO_MOVE_RIGHT     # if pixel to right of paddle is not black, don't move
+	
+	# move paddle to right 
+	lw $t6, GREY 					# $t6 = GREY
+	addi $t4, $t3, 4                # $t4 = 1 pixel to right of paddle
+	sw $t6, 0($t4)					# color pixel to right of paddle GREY
+	sw $t5, 0($t0)					# color leftmost pixel of paddle BLACK
+	
+	# update PADDLE_ADDRESS_OFFSET 
+	la $t7, PADDLE_ADDRESS_OFFSET   # $t7 = address of PADDLE_ADDRESS_OFFSET
+	addi $t0, $t0, 4                # $t0 = pixel to right of $t0 (original leftmost pixel of paddle)
+	sub $t0, $t0, $t1               # $t0 = $t0 - $t1 = new leftmost pixel - base address 
+	sw $t0, 0($t7)					# store new paddle offset into PADDLE_ADDRESS_OFFSET d
+	
+	NO_MOVE_RIGHT: 					# if the paddle shouldn't be moved 
+		jr $ra 						# return 
 
-game_loop:
-    # 1a. Check if key has been pressed
-    # 1b. Check which key has been pressed
-    # 2a. Check for collisions
-	# 2b. Update locations (paddle, ball)
-	# 3. Draw the screen
-	jal DRAW_SCENE
-	# 4. Sleep
-    #5. Go back to 1
-	b game_loop
+GAME_LOOP:
+    # 1. Check if key has been pressed and move paddle.
+    li 		$v0, 32                 
+	li 		$a0, 1
+	syscall
+	
+    lw $t0, ADDR_KBRD               # $t0 = base address for keyboard
+    lw $t8, 0($t0)                  # Load first word from keyboard
+    bne $t8, 1, no_key_pressed      # If first word is not 1, not key is pressed
+   	jal HANDLE_KEYBOARD
+   	
+   	no_key_pressed:
+   	# 2. Move ball. Detect collisions. Remove blocks.
+    
+    
+	# 3. Sleep for 250ms.
+	li $v0, 32        			    # operation 32 = sleep
+	li $a0, 250       				# 250 miliseconds 
+	syscall           				# Execute the "sleep(250)" system call
+	
+    # 4. Repeat steps 1 to 4.
+	b GAME_LOOP
+	
+HANDLE_KEYBOARD: 
+	# usage: handle_keyboard() 
+	# q = quit, a = move paddle left, d = move paddle right
+	addi $sp, $sp, -4               		# increase size of stack 
+	sw $ra, 0($sp)                  		# push `$ra` onto stack
+	
+	lw $a0, 4($t0)                  		# Load second word from keyboard
+	
+	key_eq_q:
+    beq $a0, 0x71, EXIT             		# if 'q' pressed, EXIT game
+    
+    key_eq_a:
+    bne $a0, 0x61, key_eq_d         		# if 'a' is not pressed, check 'a'
+    jal MOVE_PADDLE_LEFT            		# otherwise, move paddle left
+    j handle_keyboard_return        		# and return once done
+    
+    key_eq_d: 		
+    bne $a0, 0x64, handle_keyboard_return	# if 'd' is not pressed, return 
+    jal MOVE_PADDLE_RIGHT 				    # otherwise, move paddle right 
+    j handle_keyboard_return 				# and return once done
+    
+   	handle_keyboard_return:
+    lw $ra, 0($sp)                  # pop `$ra` from stack
+    addi $sp, $sp, 4                # decrease size of stack 
+    
+    li $v0, 1                       # ask system to print $a0
+    syscall
 
+    jr $ra
+	
 EXIT: 
 	li $v0, 10              # terminate the program gracefully
     syscall
