@@ -60,9 +60,67 @@ PADDLE_RIGHT_LIM_OFFSET: .word 3708     # maximum offset for rightmost pixel of 
 
 	# Run the Brick Breaker game.
 main:
+	# draw black over ball and paddle 
+	lw $t9, BALL_ADDRESS_OFFSET 	# $t9 = address of BALL_ADDRESS_OFFSET 
+	lw $t8, ADDR_DSPL				# $t8 = ADDR_DSPL
+	add $t9, $t8, $t9				# $t9 = $t9 + $t8 = address of ball 
+	sw $zero, 0($t9)				# draw black over ball 
+	lw $t9, PADDLE_ADDRESS_OFFSET 	# $t9 = address of PADDLE_ADDRESS_OFFSET 
+	add $t9, $t8, $t9				# $t9 = $t9 + $t8 = address of paddle 
+	sw $zero, 0($t9)				# draw black over paddle[0] 
+	sw $zero, 4($t9)				# draw black over paddle[1] 
+	sw $zero, 8($t9)				# draw black over paddle[2] 
+	sw $zero, 12($t9)				# draw black over paddle[3] 
+	sw $zero, 16($t9)				# draw black over paddle[4] 
+	sw $zero, 20($t9)				# draw black over paddle[5] 
+	sw $zero, 24($t9)				# draw black over paddle[6] 
+	sw $zero, 28($t9)				# draw black over paddle[7] 
+	
+    listen_next_s: 
+   		li 		$v0, 32                 
+		li 		$a0, 1
+		syscall
+	
+    	lw $t0, ADDR_KBRD               # $t0 = base address for keyboard
+    	lw $t8, 0($t0)                  # Load first word from keyboard
+    	bne $t8, 1, listen_next_s      # If first word is not 1, not key is pressed (keep looping) 
+   		lw $a0, 4($t0)                  # Load second word from keyboard
+   		beq $a0, 0x71, EXIT				# exit if 'q' is pressed even during pause 
+   		bne $a0, 0x73, s_sleep			# sleep if 's' is not pressed and reiterate
+   		j start							# unpause if 'p' is pressed	
+   		s_sleep:
+   		# sleep 100 ms
+   			li $v0, 32        			# operation 32 = sleep
+			li $a0, 100       			# 100 miliseconds 
+			syscall      				# sleep(100)
+		j listen_next_s					# listen to next p 
+			     
+    start:
+		
+	# reset other things 
+	la $t9, BALL_ADDRESS_OFFSET 	# $t9 = address of BALL_ADDRESS_OFFSET 
+	addi $t8, $zero, 3388			# $t8 = 3388 
+	sw $t8, 0($t9)					# BALL_ADDRESS_OFFSET  = 3388 
+	la $t9, DR						# $t9 = address of DR 
+	addi $t8, $zero, -1				# $t8 = -1 
+	sw $t8, 0($t9)					# DR = -1
+	la $t9, DC						# $t9 = address of DR 
+	addi $t8, $zero, -1				# $t8 = -1 
+	sw $t8, 0($t9)					# DC = -1
+	la $t9, PADDLE_ADDRESS_OFFSET 	# $t9 = address of PADDLE_ADDRESS_OFFSET 
+	addi $t8, $zero, 3632			# $t8 = 3632
+	sw $t8, 0($t9)					# PADDLE_ADDRESS_OFFSET = 3632
+	la $t9, LIVES					# $t9 = address of LIVES 
+	addi $t8, $zero, 3				# $t8 = 3 
+	sw $t8, 0($t9)					# LIVES = 3
+	la $t9, BLOCKS					# $t9 = address of BLOCKS
+	addi $t8, $zero, 24				# $t8 = 24 
+	sw $t8, 0($t9)					# BLOCKS = 24
+	
+	
 	jal DRAW_SCENE
-	jal GAME_LOOP
-	j EXIT              
+	jal GAME_LOOP 
+	j EXIT								 
 	
 DRAW_SCENE: 
 	# usage: draw_scene()
@@ -91,9 +149,6 @@ DRAW_SCENE:
 		addi $t3, $zero, 24                # $t3 = loop end index = 24 
 	
 		draw_block_loop: 
-			beq $t2, $t3, draw_ball        # if (loop index == 24), stop drawing blocks. Draw ball.
-			lw $t4, 0($t1)                 # $t4 = COLORS[i] 
-			
 			# Push registers onto stack (we don't push $t4 = color since we can access that through $t1)
 			addi $sp, $sp, -4   		   # increase stack size
 			sw $ra, 0($sp)     			   # push `$ra` onto stack
@@ -105,6 +160,9 @@ DRAW_SCENE:
 			sw $t2, 0($sp)     			   # push `index` onto stack
 			addi $sp, $sp, -4  			   # increase stack size
 			sw $t3, 0($sp)     			   # push `end index` onto stack
+			
+			beq $t2, $t3, draw_ball        # if (loop index == 24), stop drawing blocks. Draw ball.
+			lw $t4, 0($t1)                 # $t4 = COLORS[i] 
 			
 			# Set up parameters for draw rectangle(address, height, width, color) 
 			addi $sp, $sp, -4  			   # increase stack size
@@ -136,6 +194,7 @@ DRAW_SCENE:
 			addi $t2, $t2, 1               # Increment loop index ($t2)
 			
 			j draw_block_loop              # jump to next iteration to loop
+	
 	draw_ball: 
 		# $t0 = ball address offset AND ball address
 		# $t1 = base address of bitmap AND color grey 
@@ -370,11 +429,11 @@ MOVE_BALL:
 	# move_ball() 
 	# $t0 = dr 
 	# $t1 = dc 
-	# $t2 = BALL_ADDRESS_OFFSET and BALL_ADDRESS
+	# $t2 = BALL_ADDRESS
 	# $t3 = ADDR_DSPL
 	# $t4 = r-coordinate 
 	# $t5 = c-coordinate 
-	# $t6, $t7, $t8, $t9 are constantly changing (with $t9 changing whenever possible)
+	# all other registers are temporary 
 	lw $t0, DR 						# $t0 = DR
 	lw $t1, DC 						# $t1 = DC 
 	lw $t2, BALL_ADDRESS_OFFSET 	# $t2 = BALL_ADDRESS_OFFSET
@@ -388,57 +447,119 @@ MOVE_BALL:
 	
 	add $t2, $t2, $t3				# $t2 = old ball address 
 	
-	# TODO: only check when no side and up vert pixel AND not at edge
 	diagonal_collision:
-	
-	side_collision:
-		left_edge:
-			beq $t5, $zero, negate_dc		# if $t5 = c = 0, collision with left edge. Negate dc.
+		# basic conditions preventing diagonal collisions. 
+		beq $t4, $zero, side_collision	# if r = 0, we are at edge. No diag collision possible. 
+		beq $t5, $zero, side_collision 	# if c = 0, we are at edge. No diag collision possible. 
+		addi $t6, $zero, 31				# $t6 = 31 
+		beq $t4, $t6, side_collision	# if r = 31, we are at edge. No diag collision possible.
+		beq $t5, $t6, side_collision    # if c = 31, we are at edge. No diag collision possible. 
+		beq $t1, $zero, side_collision  # if dc = 0, the ball has no horizontal velocity. No diag collision possible.
+		# check pixel to left/right of ball is not black.
+		addi $t6, $zero, 4				# $t6 = 4 
+		mult $t1, $t6					# dc * 4
+		mflo $t6 						# $t6 = 4 * dc 
+		add $t6, $t6, $t2				# address of pixel to left/right of ball 
+		lw $t6, 0($t6)					# color of pixel to left/right of ball 
+		bne $t6, $zero, side_collision	# if color of pixel of left/right of ball is not black, no diag collision possible.
+		# check pixel to up/down of ball is not black. 
+		addi $t6, $zero, 128			# $t6 = 128 
+		mult $t0, $t6					# dr * 128 
+		mflo $t6 						# $t6 = dr * 128 
+		add $t6, $t6, $t2				# address of pixel to up/down of ball 
+		lw $t6, 0($t6)					# color of pixel to up/down of ball 
+		bne $t6, $zero, side_collision  # if color of pixel to up/down of ball is not black, no diag collision possible.
+		# check pixel diagonal to ball is not black. 
+		addi $t6, $zero, 4				# $t6 = 4 
+		mult $t1, $t6					# dc * 4
+		mflo $t6 						# $t6 = 4 * dc 
+		addi $t7, $zero, 128			# $t7 = 128 
+		mult $t0, $t7					# dr * 128 
+		mflo $t7						# $t7 = 128 * dr
+		add $t6, $t6, $t7				# t6 = 4 * dc + 128 * dr 
+		add $t6, $t6, $t2				# $t6 = address of ball + 4 * dc + 128 * dr = address of pixel diag to ball. 
+		lw $t6, 0($t6)					# $t6 = color of pixel diag to ball 
+		beq $t6, $zero, side_collision	# if color of pixel to diagonal of ball is black, no diag collision possible.
+		diag_paddle_collision: 
+			lw $t7, GREY							# $t7 = GREY 
+			bne $t6, $t7, diag_block_collision		# if color of diagonal block isn't grey, diag collision with block.
+			j negate_dc_dr							# nothing needs to happen. Just update dc dr.
+		diag_block_collision:
+			srl $t6, $t6, 8				# $t6 = $t6 >> 8 (i.e. / 256)
+			addi $t7, $zero, 4			# $t7 = 4 
+			mult $t1, $t7				# dc * 4
+			mflo $t7					# $t7 = 4 * dc 
+			addi $t8, $zero, 128		# $t8 = 128 
+			mult $t0, $t8				# dr * 128 
+			mflo $t8					# $t8 = 128 * dr
+			add $t8, $t8, $t7			# $t8 = 128 * dr + 4 * dc 
+			add $t8, $t8, $t2 			# $t8 = address of pixel diag to ball 
+			sw $t6, 0($t8)				# repaint block 1 
+			add $t8, $t8, $t7			# $t8 = $t8 + 4 * dc 
+			sw $t6, 0($t8)				# repaint block 2
+			add $t8, $t8, $t7			# $t8 = $t8 + 4 * dc 
+			sw $t6, 0($t8)				# repaint block 3
+			add $t8, $t8, $t7			# $t8 = $t8 + 4 * dc 
+			sw $t6, 0($t8)				# repaint block 4
+			bne $t6, $zero, negate_dc_dr# if color of new block isn't black, just negate_dc_dr
+			# decrement blocks
+			la $t9, BLOCKS				# $t9 = address of BLOCKS
+			lw $t8, BLOCKS				# $t8 = BLOCKS 
+			addi $t8, $t8, -1			# $t8 = BLOCKS - 1 
+			sw $t8, 0($t9)				# BLOCKS = BLOCKS - 1
+			j negate_dc_dr 				# flip dc dr 
+		negate_dc_dr: 
+			sub $t0, $zero, $t0			# dr = -dr 
+			sub $t1, $zero, $t1			# dc = -dc  
+			la $t6, DR					# $t6 = address of DR 
+			sw $t0, 0($t6)				# DR = -dr 
+			la $t6, DC					# $t6 = address of DC 
+			sw $t1, 0($t6)				# DC = -dc 
+			j erase 					# don't need to check vert and hor collisions.
+				
+	side_collision: 
+		add $t6, $t1, $t5				# $t6 = dc + c
 		right_edge:
-			addi $t9, $zero, 31				# $t9 = 31 
-			beq $t5, $t9, negate_dc 		# if $t5 = c = 31, collision with right edge. Negate dc.
-		left_pixel:
-			addi $t9, $t2, -4				# $t9 = address of pixel to left of ball 
-			lw $t9, 0($t9)					# $t9 = color of address of pixel to left of ball 
-			beq $t9, $zero, right_pixel 	# $zero = BLACK. If left pixel is black, no collision. Check right pixel.
-			lw $t8, GREY					# $t8 = GREY 
-			beq $t9, $t8, negate_dc			# if pixel to left of ball is GREY, this is collision with paddle. Don't need to remove block
-			srl $t9, $t9, 8					# color of block = color of block >> 8 (0xFF0000 -> 0x00FF00 -> 0x0000FF)
-			# re-paint block
-			addi $t8, $t2, -4				# $t8 = address of 1 pixel to left of ball 
-			sw $t9, 0($t8)					# color 1 pixel to left of ball with new color 
-			sw $t9, -4($t8)					# color 2 pixel to left of ball with new color 
-			sw $t9, -8($t8)					# color 3 pixel to left of ball with new color 
-			sw $t9, -12($t8)					# color 4 pixel to left of ball with new color 
-			# decrease blocks if needed
-			bne $t9, $zero, negate_dc		# if color of new block is NOT BLACK, negate dc but don't decrement lives.
-			la $t9, BLOCKS					# $t9 = address of BLOCKS
-			lw $t8, BLOCKS					# $t8 = BLOCKS
-			addi $t8, $t8, -1				# $t8 = BLOCKS - 1 
-			sw $t8, 0($t9)					# store BLOCKS -1 in address of blocks
-			j negate_dc 					# dc = -dc 
-		right_pixel:
-			addi $t9, $t2, 4					# $t9 = address of pixel to right of ball 
-			lw $t9, 0($t9)						# $t9 = color of address of pixel to right of ball 
-			beq $t9, $zero, no_side_collision 	# $zero = BLACK. If right pixel is black, no collision. 
-			lw $t8, GREY						# $t8 = GREY 
-			beq $t9, $t8, negate_dc				# if pixel to right of ball is GREY, this is collision with paddle. Don't need to remove block.
-			srl $t9, $t9, 8						# color of block = color of block >> 8 (0xFF0000 -> 0x00FF00 -> 0x0000FF)
-			# re-paint block. 
-			addi $t8, $t2, 4				# $t8 = address of 1 pixel to right of ball 
-			sw $t9, 0($t8)					# color 1 pixel to right of ball with new color 
-			sw $t9, 4($t8)					# color 2 pixel to right of ball with new color 
-			sw $t9, 8($t8)					# color 3 pixel to right of ball with new color 
-			sw $t9, 12($t8)					# color 4 pixel to right of ball with new color 
-			# decrease blocks if needed
-			bne $t9, $zero, negate_dc		# if color of new block is NOT BLACK, negate dc but don't decrement lives.
-			la $t9, BLOCKS					# $t9 = address of BLOCKS
-			lw $t8, BLOCKS					# $t8 = BLOCKS
-			addi $t8, $t8, -1				# $t8 = BLOCKS - 1 
-			sw $t8, 0($t9)					# store BLOCKS -1 in address of blocks
-			j negate_dc 					# dc = -dc
-		no_side_collision: 						# NO COLLISION: only here if c != 0, c != 31, left and right pixel to ball are black
-			j vertical_collision				# if there are no side collisions, check vertical collisions.
+			addi $t7, $zero, 32			# $t7 = 32 
+			bne $t6, $t7, left_edge		# if c+dc != 32, no collision with right edge. 
+			j negate_dc					# otherwise, collision with right edge => flip dc.
+		left_edge: 
+			addi $t7, $zero, -1			# $t7 = -1 
+			bne $t6, $t7, find_side_pixel	# if c+dc != -1, no collision with left edge. 
+			j negate_dc 				# otherwise, collision with left edge => flip dc.
+		find_side_pixel:
+			addi $t6, $zero, 4			# $t6 = 4 
+			mult $t1, $t6				# dc * 4
+			mflo $t6 					# $t6 = 4 * dc 
+			add $t6, $t6, $t2			# $t6 = pixel to side of ball 
+		paddle_side_collision: 
+			lw $t7, 0($t6)				# $t7 = color of pixel to side of ball, $t6 = pixel to side of ball 
+			beq $t7, $zero, no_side_collision # if pixel to side of ball is black, no side collision
+			lw $t8, GREY				# $t8 = grey 
+			bne $t7, $t8, block_side_collision # if color of pixel to side != GREY, block collision. 
+			j negate_dc					# otherwise, paddle collision => flip dc. 
+		block_side_collision: 
+			srl $t7, $t7, 8				# $t7 = $t7 >> 8 = new color of pixel 
+			addi $t8, $zero, 4			# $t8 = 4 
+			mult $t1, $t8				# dc * 4
+			mflo $t8 					# $t8 = 4 * dc 
+			sw $t7, 0($t6)				# block[0] recolored 
+			add $t6, $t6, $t8			# $t6 = block[1]
+			sw $t7, 0($t6)				# block[1] recolored 
+			add $t6, $t6, $t8			# $t6 = block[2]
+			sw $t7, 0($t6)				# block[2] recolored 
+			add $t6, $t6, $t8			# $t6 = block[3]
+			sw $t7, 0($t6)				# block[3] recolored
+			
+			bne $t7, $zero, negate_dc   # if color of new block isn't black, just negate_dc
+			# decrement blocks
+			la $t9, BLOCKS				# $t9 = address of BLOCKS
+			lw $t8, BLOCKS				# $t8 = BLOCKS 
+			addi $t8, $t8, -1			# $t8 = BLOCKS - 1 
+			sw $t8, 0($t9)				# BLOCKS = BLOCKS - 1
+			j negate_dc 				# flip dc.
+		no_side_collision: 
+			j vertical_collision		# if there are no side collisions, check vertical collisions. 
 		negate_dc: 
 			sub $t1, $zero, $t1		# $t1 = 0 - $t1 <=> $t1 = -$t1 <=> dc = -dc 
 			la $t9, DC				# $t9 = address of DC 
@@ -561,7 +682,7 @@ MOVE_BALL:
 			sub $t0, $zero, $t0     # $t0 = 0 - $t0 <=> $t0 = -$t0 <=> dr = -dr 
 			la $t9, DR				# $t9 = address of DR
 			sw $t0, 0($t9)			# DR = -DR (update DR)
-			
+	
 	erase:
 		addi $t9, $zero, 0x000000	# $t9 = black 
 		sw $t9, 0($t2)				# draw black over old ball
@@ -586,8 +707,7 @@ MOVE_BALL:
 		lw $t8, LIVES				# $t8 = lives 
 		addi $t8, $t8, -1			# $t8 = lives - 1 
 		sw $t8, 0($t9)				# store lives-1 into address of LIVES
-		beq $t8, $zero, EXIT		# if $t8 = lives = 0, exit game. TODO: maybe restart game
-		
+		beq $t8, $zero, main		# if $t8 = lives = 0, restart game
 		# draw black over ball and paddle 
 		lw $t9, BALL_ADDRESS_OFFSET 	# $t9 = address of BALL_ADDRESS_OFFSET 
 		lw $t8, ADDR_DSPL				# $t8 = ADDR_DSPL
@@ -618,7 +738,7 @@ MOVE_BALL:
 		addi $t8, $zero, 3632			# $t8 = 3632
 		sw $t8, 0($t9)					# PADDLE_ADDRESS_OFFSET = 3632
 		
-		# redraw black over ball and paddle 
+		# redraw grey over ball and paddle 
 		lw $t9, BALL_ADDRESS_OFFSET 	# $t9 = address of BALL_ADDRESS_OFFSET 
 		lw $t8, ADDR_DSPL				# $t8 = ADDR_DSPL
 		lw $t7, GREY					# $t7 = GREY
@@ -639,6 +759,10 @@ MOVE_BALL:
 		jr $ra
 
 GAME_LOOP:
+	# 0. Check if user won 
+	la $t0, BLOCKS				# $t0 = blocks address
+	lw $t0, BLOCKS 				# $t0 = BLOCKS 
+	beq $t0, $zero, main		# if there is 0 blocks left, restart
     # 1. Check if key has been pressed and move paddle.
     li 		$v0, 32                 
 	li 		$a0, 1
@@ -658,32 +782,53 @@ GAME_LOOP:
 	# 3. Sleep for 250ms.
 	li $v0, 32        			    # operation 32 = sleep
 	li $a0, 100       				# 100 miliseconds 
-	syscall           				# Execute the "sleep(250)" system call
+	syscall           				# Execute the "sleep(100)" system call
 	
     # 4. Repeat steps 1 to 4.
 	b GAME_LOOP
 	
 HANDLE_KEYBOARD: 
 	# usage: handle_keyboard() 
-	# q = quit, a = move paddle left, d = move paddle right
+	# q = quit, a = move paddle left, d = move paddle right, p = pause 
 	addi $sp, $sp, -4               		# increase size of stack 
 	sw $ra, 0($sp)                  		# push `$ra` onto stack
 	
 	lw $a0, 4($t0)                  		# Load second word from keyboard
 	
 	key_eq_q:
-    beq $a0, 0x71, EXIT             		# if 'q' pressed, EXIT game
+    	beq $a0, 0x71, EXIT             		# if 'q' pressed, EXIT game
     
     key_eq_a:
-    bne $a0, 0x61, key_eq_d         		# if 'a' is not pressed, check 'a'
-    jal MOVE_PADDLE_LEFT            		# otherwise, move paddle left
-    j handle_keyboard_return        		# and return once done
+    	bne $a0, 0x61, key_eq_d         		# if 'a' is not pressed, check 'a'
+    	jal MOVE_PADDLE_LEFT            		# otherwise, move paddle left
+    	j handle_keyboard_return        		# and return once done
     
     key_eq_d: 		
-    bne $a0, 0x64, handle_keyboard_return	# if 'd' is not pressed, return 
-    jal MOVE_PADDLE_RIGHT 				    # otherwise, move paddle right 
-    j handle_keyboard_return 				# and return once done
+    	bne $a0, 0x64, key_eq_p					# if 'd' is not pressed, check if key is P 
+    	jal MOVE_PADDLE_RIGHT 				    # otherwise, move paddle right 
+    	j handle_keyboard_return 				# and return once done
     
+    key_eq_p: 
+    	bne $a0, 0x70, handle_keyboard_return	# if 'p' is not pressed handle return 
+    	listen_next_p: 
+   			li 		$v0, 32                 
+			li 		$a0, 1
+			syscall
+	
+    		lw $t0, ADDR_KBRD               # $t0 = base address for keyboard
+    		lw $t8, 0($t0)                  # Load first word from keyboard
+    		bne $t8, 1, listen_next_p       # If first word is not 1, not key is pressed (keep looping) 
+   			lw $a0, 4($t0)                  # Load second word from keyboard
+   			beq $a0, 0x71, EXIT				# exit if 'q' is pressed even during pause 
+   			bne $a0, 0x70, p_sleep			# sleep if 'p' is not pressed and reiterate
+   			j handle_keyboard_return		# unpause if 'p' is pressed	
+   			p_sleep:
+   				# sleep 100 ms
+   				li $v0, 32        			# operation 32 = sleep
+				li $a0, 100       			# 100 miliseconds 
+				syscall      				# sleep(100)
+			j listen_next_p					# listen to next p 
+			     
    	handle_keyboard_return:
     lw $ra, 0($sp)                  # pop `$ra` from stack
     addi $sp, $sp, 4                # decrease size of stack 
