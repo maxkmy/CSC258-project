@@ -83,11 +83,11 @@ main:
 	
     	lw $t0, ADDR_KBRD               # $t0 = base address for keyboard
     	lw $t8, 0($t0)                  # Load first word from keyboard
-    	bne $t8, 1, listen_next_s      # If first word is not 1, not key is pressed (keep looping) 
+    	bne $t8, 1, listen_next_s      	# If first word is not 1, not key is pressed (keep looping) 
    		lw $a0, 4($t0)                  # Load second word from keyboard
    		beq $a0, 0x71, EXIT				# exit if 'q' is pressed even during pause 
    		bne $a0, 0x73, s_sleep			# sleep if 's' is not pressed and reiterate
-   		j start							# unpause if 'p' is pressed	
+   		j start							# start if 's' is pressed
    		s_sleep:
    		# sleep 100 ms
    			li $v0, 32        			# operation 32 = sleep
